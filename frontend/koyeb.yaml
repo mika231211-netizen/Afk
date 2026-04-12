@@ -1,0 +1,24 @@
+name: minecraft-panel-frontend
+services:
+  - name: frontend
+    type: web
+    git:
+      repository: github.com/mika231211-netizen/Afk
+      branch: main
+    build:
+      buildpack: nodejs
+      root_dir: frontend
+      build_command: npm run build
+    run:
+      command: npx serve -s dist -l 8080
+    ports:
+      - port: 8080
+        protocol: http
+    env:
+      - key: VITE_API_URL
+        value: https://minecraft-panel-backend.koyeb.app/api
+      - key: VITE_SOCKET_URL
+        value: https://minecraft-panel-backend.koyeb.app
+    scaling:
+      min: 1
+      max: 1

@@ -1,0 +1,29 @@
+name: minecraft-panel-backend
+services:
+  - name: backend
+    type: web
+    git:
+      repository: github.com/mika231211-netizen/Afk
+      branch: main
+    build:
+      buildpack: nodejs
+      root_dir: backend
+    run:
+      command: node src/index.js
+    ports:
+      - port: 3001
+        protocol: http
+    env:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: MONGODB_URI
+        value: mongodb+srv://Mika:Tino2312!@afkclient.iushys2.mongodb.net/minecraft-panel?appName=afkclient
+      - key: JWT_SECRET
+        value: minecraft_panel_super_secret_key_2024
+      - key: FRONTEND_URL
+        value: https://minecraft-panel-frontend.koyeb.app
+    scaling:
+      min: 1
+      max: 1
