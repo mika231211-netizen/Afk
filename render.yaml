@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: minecraft-panel-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://Mika:Tino2312!@afkclient.iushys2.mongodb.net/minecraft-panel?appName=afkclient
+      - key: JWT_SECRET
+        value: minecraft_panel_super_secret_key_2024
+      - key: FRONTEND_URL
+        value: https://minecraft-panel-frontend.onrender.com
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          type: web
+          name: minecraft-panel-backend
+          property: host
+
+  - type: web
+    name: minecraft-panel-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://minecraft-panel-backend.onrender.com/api
+      - key: VITE_SOCKET_URL
+        value: https://minecraft-panel-backend.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

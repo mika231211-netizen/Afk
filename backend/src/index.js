@@ -4,6 +4,7 @@ const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
+const keepAlive = require('./keepalive');
 
 const authRoutes = require('./routes/auth');
 const botRoutes = require('./routes/bot');
@@ -59,6 +60,8 @@ mongoose.connect(process.env.MONGODB_URI)
     const PORT = process.env.PORT || 3001;
     httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`[SERVER] Running on port ${PORT}`);
+      // Start keep-alive ping (prevents Render free tier sleep)
+      keepAlive(process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL);
     });
   })
   .catch((err) => {
