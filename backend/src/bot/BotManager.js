@@ -59,7 +59,7 @@ class BotInstance {
 
     if (cfg.useMicrosoftAuth) {
       botOptions.auth = 'microsoft';
-      // mineflayer handles the MS auth flow via device code
+      botOptions.profilesFolder = require('path').join(require('os').homedir(), '.minecraft-auth');
     } else {
       botOptions.username = cfg.botUsername || 'AFK_Bot';
       botOptions.auth = 'offline';
