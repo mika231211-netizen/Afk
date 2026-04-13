@@ -12,6 +12,7 @@ async function getTunnel() {
       hostname: 'api.localtunnel.me',
       path: '/?new',
       method: 'GET',
+      rejectUnauthorized: false,
     }, (res) => {
       let data = '';
       res.on('data', d => data += d);
