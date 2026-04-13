@@ -18,9 +18,10 @@ async function getTunnel() {
       res.on('data', d => data += d);
       res.on('end', () => {
         try {
+          console.log('[Tunnel] API response:', data.substring(0, 200));
           const json = JSON.parse(data);
           resolve(json);
-        } catch(e) { reject(e); }
+        } catch(e) { reject(new Error('Parse error: ' + data.substring(0, 100))); }
       });
     });
     req.on('error', reject);
