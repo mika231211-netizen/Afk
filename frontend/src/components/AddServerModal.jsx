@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Microsoft } from 'lucide-react';
+import { X } from 'lucide-react';
 import api from '../api/axios';
 
 const COMMON_BLOCKS = [
