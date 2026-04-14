@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// Always use proxy - vite forwards /api to backend
 const api = axios.create({
   baseURL: '/api',
 });

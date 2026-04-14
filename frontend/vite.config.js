@@ -5,16 +5,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: '0.0.0.0', // accessible from all devices on network
     proxy: {
       '/api': {
-        target: 'https://f04fcc52fb6a2e63-217-235-219-181.serveousercontent.com',
+        target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false,
       },
       '/socket.io': {
-        target: 'https://f04fcc52fb6a2e63-217-235-219-181.serveousercontent.com',
+        target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false,
         ws: true,
       },
     },

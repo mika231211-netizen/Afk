@@ -11,8 +11,8 @@ export function SocketProvider({ children }) {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL ||
-      window.location.origin.replace(':5173', ':3001');
+    // Connect to backend on same host but port 3001
+    const socketUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
 
     const socket = io(socketUrl, {
       auth: { token },

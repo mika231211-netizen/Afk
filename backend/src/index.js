@@ -20,14 +20,14 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 const io = new Server(httpServer, {
   cors: {
-    origin: [FRONTEND_URL, /\.railway\.app$/, /\.render\.com$/, /\.onrender\.com$/],
+    origin: true, // allow all origins on local network
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
 
 app.use(cors({
-  origin: [FRONTEND_URL, /\.railway\.app$/, /\.render\.com$/, /\.onrender\.com$/],
+  origin: true,
   credentials: true,
 }));
 app.use(express.json());
