@@ -55,6 +55,8 @@ class BotInstance {
       port: cfg.port || 25565,
       version: cfg.version || false,
       hideErrors: false,
+      checkTimeoutInterval: 60000,
+      closeTimeout: 240,
     };
 
     if (cfg.useMicrosoftAuth) {

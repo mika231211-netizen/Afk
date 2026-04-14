@@ -7,12 +7,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://0c7f28dafcf0a0e0-217-235-219-181.serveousercontent.com',
+        target: 'https://9030e1d8e97054ea-217-235-219-181.serveousercontent.com',
         changeOrigin: true,
         secure: false,
       },
       '/socket.io': {
-        target: 'https://0c7f28dafcf0a0e0-217-235-219-181.serveousercontent.com',
+        target: 'https://9030e1d8e97054ea-217-235-219-181.serveousercontent.com',
         changeOrigin: true,
         secure: false,
         ws: true,
