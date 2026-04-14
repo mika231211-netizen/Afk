@@ -522,29 +522,11 @@ class BotInstance {
   sendChat(message) {
     if (this.state !== 'online' || !this.bot) return false;
     try {
-      if (message.startsWith('/')) {
-        // Send as command - works on 1.19+ servers
-        const command = message.slice(1); // remove the /
-        if (this.bot.supportFeature && this.bot.supportFeature('useChatCommand')) {
-          this.bot._client.write('chat_command', {
-            command: command,
-            timestamp: BigInt(Date.now()),
-            salt: BigInt(0),
-            argumentSignatures: [],
-            messageCount: 0,
-            acknowledged: Buffer.alloc(3, 0),
-          });
-        } else {
-          // Fallback for older servers
-          this.bot.chat(message);
-        }
-      } else {
-        this.bot.chat(message);
-      }
+      this.bot.chat(message);
       return true;
-    } catch {
-      // Final fallback
-      try { this.bot.chat(message); return true; } catch { return false; }
+    } catch (err) {
+      this.addLog('error', `❌ Chat-Fehler: ${err.message}`);
+      return false;
     }
   }
 
