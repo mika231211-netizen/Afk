@@ -11,7 +11,6 @@ export function SocketProvider({ children }) {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    // In production use VITE_SOCKET_URL, locally auto-detect
     const socketUrl = import.meta.env.VITE_SOCKET_URL ||
       window.location.origin.replace(':5173', ':3001');
 

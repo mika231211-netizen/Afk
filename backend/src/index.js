@@ -9,6 +9,7 @@ const keepAlive = require('./keepalive');
 const authRoutes = require('./routes/auth');
 const botRoutes = require('./routes/bot');
 const serverRoutes = require('./routes/servers');
+const tunnelRoutes = require('./routes/tunnel');
 const { authenticateSocket } = require('./middleware/auth');
 const BotManager = require('./bot/BotManager');
 
@@ -34,6 +35,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/bot', botRoutes);
 app.use('/api/servers', serverRoutes);
+app.use('/api/tunnel', tunnelRoutes);
 app.get('/api/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 io.use(authenticateSocket);

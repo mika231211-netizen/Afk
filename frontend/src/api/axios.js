@@ -1,10 +1,8 @@
 import axios from 'axios';
 
-// In production the frontend calls the backend URL directly via env variable
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-
+// Always use proxy - vite forwards /api to backend
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: '/api',
 });
 
 api.interceptors.request.use((config) => {
