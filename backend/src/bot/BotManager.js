@@ -235,27 +235,62 @@ class BotInstance {
     try { this.bot?.pathfinder?.stop(); } catch {}
   }
 
-  // Equip best pickaxe from hotbar
-  _equipBestPickaxe() {
-    if (!this.bot) return false;
+  // Equip best pickaxe from inventory/hotbar
+  async _equipBestPickaxe() {
+    if (!this.bot) return null;
     const pickaxeOrder = [
       'netherite_pickaxe', 'diamond_pickaxe', 'iron_pickaxe',
       'stone_pickaxe', 'golden_pickaxe', 'wooden_pickaxe'
     ];
-    for (const pickaxeName of pickaxeOrder) {
-      const item = this.bot.inventory.items().find(i => i.name === pickaxeName);
+    for (const name of pickaxeOrder) {
+      const item = this.bot.inventory.items().find(i => i.name === name);
       if (item) {
         try {
-          this.bot.equip(item, 'hand');
-          return pickaxeName;
+          await this.bot.equip(item, 'hand');
+          return name;
         } catch {}
       }
     }
     return null;
   }
 
+  // Check if block matches any target
+  _blockMatches(blockName, targets) {
+    for (const t of targets) {
+      if (blockName === t) return true;
+      if ((t === 'spawner' || t === 'mob_spawner') &&
+          (blockName === 'spawner' || blockName === 'mob_spawner')) return true;
+      if (t.includes('spawner') && blockName.includes('spawner')) return true;
+    }
+    return false;
+  }
+
+  // Navigate to a position
+  async _navigateTo(x, y, z, timeout = 10000) {
+    return new Promise((resolve) => {
+      try {
+        const mcData = require('minecraft-data')(this.bot.version);
+        const movements = new Movements(this.bot, mcData);
+        movements.canDig = false; // don't dig while navigating
+        this.bot.pathfinder.setMovements(movements);
+        const goal = new goals.GoalNear(x, y, z, 2);
+        this.bot.pathfinder.setGoal(goal);
+        const timer = setTimeout(() => {
+          try { this.bot.pathfinder.setGoal(null); } catch {}
+          resolve(false);
+        }, timeout);
+        this.bot.once('goal_reached', () => { clearTimeout(timer); resolve(true); });
+        this.bot.pathfinder.on('path_update', (r) => {
+          if (r.status === 'noPath') { clearTimeout(timer); resolve(false); }
+        });
+      } catch { resolve(false); }
+    });
+  }
+
   async _mineLoop() {
     let blocksMined = 0;
+    this.addLog('action', '⛏️ Auto-Mine gestartet');
+
     while (this._miningActive && this.bot && this.state === 'online') {
       try {
         const targets = this.features.autoMine.targetBlocks;
@@ -264,74 +299,157 @@ class BotInstance {
           continue;
         }
 
+        // Find nearest target block
         let found = null;
+        let minDist = Infinity;
         for (const blockName of targets) {
-          // Support spawner variants: 'spawner', 'mob_spawner', 'skeleton_spawner' etc.
           const block = this.bot.findBlock({
-            matching: (b) => {
-              if (b.name === blockName) return true;
-              // Match any spawner if user typed 'spawner' or 'mob_spawner'
-              if ((blockName === 'spawner' || blockName === 'mob_spawner') &&
-                  (b.name === 'spawner' || b.name === 'mob_spawner')) return true;
-              // Match specific spawner types
-              if (blockName.includes('spawner') && b.name.includes('spawner')) return true;
-              return false;
-            },
-            maxDistance: this.features.autoMine.radius || 5,
+            matching: (b) => this._blockMatches(b.name, [blockName]),
+            maxDistance: this.features.autoMine.radius || 8,
           });
-          if (block) { found = block; break; }
+          if (block) {
+            const dist = this.bot.entity.position.distanceTo(block.position);
+            if (dist < minDist) { minDist = dist; found = block; }
+          }
         }
 
         if (!found) {
+          // No blocks nearby - deposit if we have items
           if (blocksMined > 0) {
             await this._depositToEnderChest();
             blocksMined = 0;
           }
-          await this._sleep(1000);
+          await this._sleep(1500);
           continue;
         }
 
-        this.addLog('action', `⛏️ Mine: ${found.name} bei ${found.position}`);
+        this.addLog('action', `⛏️ Ziel: ${found.name} (${Math.round(minDist)}m entfernt)`);
 
-        // Equip best pickaxe before mining
-        const pickaxe = this._equipBestPickaxe();
-        if (pickaxe) {
-          this.addLog('action', `🪓 Benutze: ${pickaxe}`);
+        // Equip pickaxe
+        const pickaxe = await this._equipBestPickaxe();
+        if (!pickaxe) {
+          this.addLog('action', '⛏️ Keine Spitzhacke im Inventar!');
+          await this._sleep(3000);
+          continue;
         }
-        await this._sleep(200);
 
-        // Move to block
-        const mcData = require('minecraft-data')(this.bot.version);
-        const movements = new Movements(this.bot, mcData);
-        this.bot.pathfinder.setMovements(movements);
-
-        await new Promise((resolve) => {
-          const goal = new goals.GoalGetToBlock(found.position.x, found.position.y, found.position.z);
-          this.bot.pathfinder.setGoal(goal);
-          const timeout = setTimeout(() => resolve(), 8000);
-          this.bot.once('goal_reached', () => { clearTimeout(timeout); resolve(); });
-          this.bot.once('path_update', (r) => { if (r.status === 'noPath') { clearTimeout(timeout); resolve(); } });
-        });
-
+        // Navigate to block
+        await this._navigateTo(found.position.x, found.position.y, found.position.z, 12000);
         if (!this._miningActive) break;
 
+        // Re-check block still exists
+        const blockStillThere = this.bot.blockAt(found.position);
+        if (!blockStillThere || !this._blockMatches(blockStillThere.name, targets)) {
+          await this._sleep(200);
+          continue;
+        }
+
         // Re-equip pickaxe right before digging
-        this._equipBestPickaxe();
+        await this._equipBestPickaxe();
+        await this._sleep(150);
+
+        // Look at block
+        await this.bot.lookAt(found.position.offset(0.5, 0.5, 0.5));
         await this._sleep(100);
 
         // Dig
-        await this.bot.dig(found);
-        blocksMined++;
-        await this._sleep(200);
+        try {
+          await this.bot.dig(blockStillThere);
+          blocksMined++;
+          this.addLog('action', `✅ ${found.name} abgebaut (${blocksMined} total)`);
+        } catch (digErr) {
+          this.addLog('action', `⚠️ Abbau fehlgeschlagen: ${digErr.message}`);
+        }
 
-        // Every 10 blocks mined, deposit to ender chest
+        await this._sleep(300);
+
+        // Deposit every 10 blocks
         if (blocksMined >= 10) {
           await this._depositToEnderChest();
           blocksMined = 0;
         }
+
       } catch (err) {
+        this.addLog('action', `⚠️ Mine-Fehler: ${err.message}`);
         await this._sleep(2000);
       }
+    }
+    this.addLog('action', '⛏️ Auto-Mine gestoppt');
+  }
+
+  async _depositToEnderChest() {
+    if (!this.bot || this.state !== 'online') return;
+    try {
+      // Find ender chest nearby (search radius 20)
+      const enderChest = this.bot.findBlock({
+        matching: (b) => b.name === 'ender_chest',
+        maxDistance: 20,
+      });
+
+      if (!enderChest) {
+        this.addLog('action', '📦 Keine Ender Chest in der Nähe (Radius 20)');
+        return;
+      }
+
+      this.addLog('action', `📦 Ender Chest gefunden – navigiere hin`);
+
+      // Navigate to ender chest
+      await this._navigateTo(
+        enderChest.position.x,
+        enderChest.position.y,
+        enderChest.position.z,
+        12000
+      );
+
+      await this._sleep(400);
+
+      // Look at chest
+      await this.bot.lookAt(enderChest.position.offset(0.5, 0.5, 0.5));
+      await this._sleep(300);
+
+      // Open chest
+      let chest;
+      try {
+        chest = await this.bot.openContainer(enderChest);
+      } catch (e) {
+        this.addLog('action', `📦 Konnte Ender Chest nicht öffnen: ${e.message}`);
+        return;
+      }
+
+      await this._sleep(600);
+
+      // Deposit ALL items except tools, armor, food
+      const keepItems = [
+        'pickaxe', 'axe', 'sword', 'shovel', 'hoe', 'helmet', 'chestplate',
+        'leggings', 'boots', 'shield', 'bread', 'apple', 'cooked', 'food',
+        'ender_chest', 'torch', 'crafting_table'
+      ];
+
+      let deposited = 0;
+      const items = [...this.bot.inventory.items()];
+
+      for (const item of items) {
+        const shouldKeep = keepItems.some(k => item.name.includes(k));
+        if (!shouldKeep) {
+          try {
+            await chest.deposit(item.type, null, item.count);
+            deposited += item.count;
+            await this._sleep(150);
+          } catch {}
+        }
+      }
+
+      chest.close();
+      await this._sleep(300);
+
+      if (deposited > 0) {
+        this.addLog('action', `📦 ${deposited} Items in Ender Chest eingelagert ✅`);
+      } else {
+        this.addLog('action', `📦 Inventar bereits leer`);
+      }
+
+    } catch (err) {
+      this.addLog('action', `📦 Ender Chest Fehler: ${err.message}`);
     }
   }
 
@@ -348,76 +466,6 @@ class BotInstance {
         }, 500 + Math.random() * 1000);
         break;
       }
-    }
-  }
-
-  async _depositToEnderChest() {
-    if (!this.bot || this.state !== 'online') return;
-    try {
-      // Find ender chest nearby
-      const enderChest = this.bot.findBlock({
-        matching: (b) => b.name === 'ender_chest',
-        maxDistance: 16,
-      });
-
-      if (!enderChest) {
-        this.addLog('action', '📦 Keine Ender Chest in der Nähe gefunden');
-        return;
-      }
-
-      this.addLog('action', `📦 Ender Chest gefunden bei ${enderChest.position} – lagere Items ein`);
-
-      // Move to ender chest
-      const mcData = require('minecraft-data')(this.bot.version);
-      const movements = new Movements(this.bot, mcData);
-      this.bot.pathfinder.setMovements(movements);
-
-      await new Promise((resolve) => {
-        const goal = new goals.GoalGetToBlock(enderChest.position.x, enderChest.position.y, enderChest.position.z);
-        this.bot.pathfinder.setGoal(goal);
-        const timeout = setTimeout(() => resolve(), 10000);
-        this.bot.once('goal_reached', () => { clearTimeout(timeout); resolve(); });
-        this.bot.once('path_update', (r) => { if (r.status === 'noPath') { clearTimeout(timeout); resolve(); } });
-      });
-
-      await this._sleep(500);
-
-      // Open ender chest
-      const chest = await this.bot.openContainer(enderChest);
-      await this._sleep(500);
-
-      // Deposit target block items
-      const targets = this.features.autoMine.targetBlocks || [];
-      let deposited = 0;
-
-      for (const item of this.bot.inventory.items()) {
-        // Deposit if item matches target blocks or is a drop from them
-        const shouldDeposit = targets.some(t => {
-          const baseName = t.replace('_ore', '').replace('deepslate_', '');
-          return item.name.includes(baseName) || item.name === t ||
-                 item.name.includes('raw_') || item.name.includes('_ingot') ||
-                 item.name.includes('diamond') || item.name.includes('emerald') ||
-                 item.name.includes('coal') || item.name.includes('ancient_debris');
-        });
-
-        if (shouldDeposit) {
-          try {
-            await chest.deposit(item.type, null, item.count);
-            deposited += item.count;
-            await this._sleep(100);
-          } catch {}
-        }
-      }
-
-      chest.close();
-      if (deposited > 0) {
-        this.addLog('action', `📦 ${deposited} Items in Ender Chest eingelagert`);
-      } else {
-        this.addLog('action', `📦 Keine passenden Items zum Einlagern`);
-      }
-
-    } catch (err) {
-      this.addLog('action', `📦 Ender Chest Fehler: ${err.message}`);
     }
   }
 
