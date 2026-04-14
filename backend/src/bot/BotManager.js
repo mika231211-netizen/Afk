@@ -57,6 +57,7 @@ class BotInstance {
       hideErrors: false,
       checkTimeoutInterval: 60000,
       closeTimeout: 240,
+      chatLengthLimit: 256,
     };
 
     if (cfg.useMicrosoftAuth) {
@@ -522,7 +523,13 @@ class BotInstance {
   sendChat(message) {
     if (this.state !== 'online' || !this.bot) return false;
     try {
-      this.bot.chat(message);
+      // Try signed chat first (1.19+ servers like donutsmp)
+      if (this.bot._client && this.bot._client.session) {
+        this.bot.chat(message);
+      } else {
+        this.bot.chat(message);
+      }
+      this.addLog('chat', `[Du] ${message}`);
       return true;
     } catch (err) {
       this.addLog('error', `❌ Chat-Fehler: ${err.message}`);
