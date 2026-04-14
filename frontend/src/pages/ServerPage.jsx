@@ -18,6 +18,9 @@ const BLOCK_SUGGESTIONS = [
   'diamond_ore','deepslate_diamond_ore','iron_ore','deepslate_iron_ore',
   'gold_ore','deepslate_gold_ore','coal_ore','emerald_ore','ancient_debris',
   'oak_log','spruce_log','birch_log','stone','cobblestone','gravel','sand',
+  'spawner','mob_spawner',
+  'skeleton_spawner','zombie_spawner','spider_spawner','cave_spider_spawner',
+  'blaze_spawner','creeper_spawner','enderman_spawner','witch_spawner',
 ];
 
 function FeatureToggle({ label, icon: Icon, enabled, onToggle, disabled }) {

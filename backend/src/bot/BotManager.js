@@ -235,6 +235,25 @@ class BotInstance {
     try { this.bot?.pathfinder?.stop(); } catch {}
   }
 
+  // Equip best pickaxe from hotbar
+  _equipBestPickaxe() {
+    if (!this.bot) return false;
+    const pickaxeOrder = [
+      'netherite_pickaxe', 'diamond_pickaxe', 'iron_pickaxe',
+      'stone_pickaxe', 'golden_pickaxe', 'wooden_pickaxe'
+    ];
+    for (const pickaxeName of pickaxeOrder) {
+      const item = this.bot.inventory.items().find(i => i.name === pickaxeName);
+      if (item) {
+        try {
+          this.bot.equip(item, 'hand');
+          return pickaxeName;
+        } catch {}
+      }
+    }
+    return null;
+  }
+
   async _mineLoop() {
     let blocksMined = 0;
     while (this._miningActive && this.bot && this.state === 'online') {
@@ -247,15 +266,23 @@ class BotInstance {
 
         let found = null;
         for (const blockName of targets) {
+          // Support spawner variants: 'spawner', 'mob_spawner', 'skeleton_spawner' etc.
           const block = this.bot.findBlock({
-            matching: (b) => b.name === blockName,
+            matching: (b) => {
+              if (b.name === blockName) return true;
+              // Match any spawner if user typed 'spawner' or 'mob_spawner'
+              if ((blockName === 'spawner' || blockName === 'mob_spawner') &&
+                  (b.name === 'spawner' || b.name === 'mob_spawner')) return true;
+              // Match specific spawner types
+              if (blockName.includes('spawner') && b.name.includes('spawner')) return true;
+              return false;
+            },
             maxDistance: this.features.autoMine.radius || 5,
           });
           if (block) { found = block; break; }
         }
 
         if (!found) {
-          // No blocks found - try to deposit to ender chest if inventory getting full
           if (blocksMined > 0) {
             await this._depositToEnderChest();
             blocksMined = 0;
@@ -265,6 +292,13 @@ class BotInstance {
         }
 
         this.addLog('action', `⛏️ Mine: ${found.name} bei ${found.position}`);
+
+        // Equip best pickaxe before mining
+        const pickaxe = this._equipBestPickaxe();
+        if (pickaxe) {
+          this.addLog('action', `🪓 Benutze: ${pickaxe}`);
+        }
+        await this._sleep(200);
 
         // Move to block
         const mcData = require('minecraft-data')(this.bot.version);
@@ -280,6 +314,10 @@ class BotInstance {
         });
 
         if (!this._miningActive) break;
+
+        // Re-equip pickaxe right before digging
+        this._equipBestPickaxe();
+        await this._sleep(100);
 
         // Dig
         await this.bot.dig(found);
