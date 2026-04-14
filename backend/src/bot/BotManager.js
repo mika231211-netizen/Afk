@@ -115,6 +115,7 @@ class BotInstance {
     bot.on('error', (err) => {
       this.setState('error', { error: err.message });
       this.addLog('error', `❌ Fehler: ${err.message}`);
+      console.error(`[Bot ${this.serverId}] Error:`, err.message);
     });
 
     bot.on('kicked', (reason) => {
