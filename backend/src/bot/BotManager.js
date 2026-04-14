@@ -236,6 +236,7 @@ class BotInstance {
   }
 
   async _mineLoop() {
+    let blocksMined = 0;
     while (this._miningActive && this.bot && this.state === 'online') {
       try {
         const targets = this.features.autoMine.targetBlocks;
@@ -254,6 +255,11 @@ class BotInstance {
         }
 
         if (!found) {
+          // No blocks found - try to deposit to ender chest if inventory getting full
+          if (blocksMined > 0) {
+            await this._depositToEnderChest();
+            blocksMined = 0;
+          }
           await this._sleep(1000);
           continue;
         }
@@ -265,7 +271,7 @@ class BotInstance {
         const movements = new Movements(this.bot, mcData);
         this.bot.pathfinder.setMovements(movements);
 
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve) => {
           const goal = new goals.GoalGetToBlock(found.position.x, found.position.y, found.position.z);
           this.bot.pathfinder.setGoal(goal);
           const timeout = setTimeout(() => resolve(), 8000);
@@ -277,7 +283,14 @@ class BotInstance {
 
         // Dig
         await this.bot.dig(found);
+        blocksMined++;
         await this._sleep(200);
+
+        // Every 10 blocks mined, deposit to ender chest
+        if (blocksMined >= 10) {
+          await this._depositToEnderChest();
+          blocksMined = 0;
+        }
       } catch (err) {
         await this._sleep(2000);
       }
@@ -297,6 +310,76 @@ class BotInstance {
         }, 500 + Math.random() * 1000);
         break;
       }
+    }
+  }
+
+  async _depositToEnderChest() {
+    if (!this.bot || this.state !== 'online') return;
+    try {
+      // Find ender chest nearby
+      const enderChest = this.bot.findBlock({
+        matching: (b) => b.name === 'ender_chest',
+        maxDistance: 16,
+      });
+
+      if (!enderChest) {
+        this.addLog('action', '📦 Keine Ender Chest in der Nähe gefunden');
+        return;
+      }
+
+      this.addLog('action', `📦 Ender Chest gefunden bei ${enderChest.position} – lagere Items ein`);
+
+      // Move to ender chest
+      const mcData = require('minecraft-data')(this.bot.version);
+      const movements = new Movements(this.bot, mcData);
+      this.bot.pathfinder.setMovements(movements);
+
+      await new Promise((resolve) => {
+        const goal = new goals.GoalGetToBlock(enderChest.position.x, enderChest.position.y, enderChest.position.z);
+        this.bot.pathfinder.setGoal(goal);
+        const timeout = setTimeout(() => resolve(), 10000);
+        this.bot.once('goal_reached', () => { clearTimeout(timeout); resolve(); });
+        this.bot.once('path_update', (r) => { if (r.status === 'noPath') { clearTimeout(timeout); resolve(); } });
+      });
+
+      await this._sleep(500);
+
+      // Open ender chest
+      const chest = await this.bot.openContainer(enderChest);
+      await this._sleep(500);
+
+      // Deposit target block items
+      const targets = this.features.autoMine.targetBlocks || [];
+      let deposited = 0;
+
+      for (const item of this.bot.inventory.items()) {
+        // Deposit if item matches target blocks or is a drop from them
+        const shouldDeposit = targets.some(t => {
+          const baseName = t.replace('_ore', '').replace('deepslate_', '');
+          return item.name.includes(baseName) || item.name === t ||
+                 item.name.includes('raw_') || item.name.includes('_ingot') ||
+                 item.name.includes('diamond') || item.name.includes('emerald') ||
+                 item.name.includes('coal') || item.name.includes('ancient_debris');
+        });
+
+        if (shouldDeposit) {
+          try {
+            await chest.deposit(item.type, null, item.count);
+            deposited += item.count;
+            await this._sleep(100);
+          } catch {}
+        }
+      }
+
+      chest.close();
+      if (deposited > 0) {
+        this.addLog('action', `📦 ${deposited} Items in Ender Chest eingelagert`);
+      } else {
+        this.addLog('action', `📦 Keine passenden Items zum Einlagern`);
+      }
+
+    } catch (err) {
+      this.addLog('action', `📦 Ender Chest Fehler: ${err.message}`);
     }
   }
 
