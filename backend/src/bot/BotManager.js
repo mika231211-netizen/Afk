@@ -138,8 +138,8 @@ class BotInstance {
       }
     });
 
-    // Player scan every 3 seconds
-    this._playerScanTimer = setInterval(() => this._updateNearbyPlayers(), 3000);
+    // Player scan every 1 second for faster detection
+    this._playerScanTimer = setInterval(() => this._updateNearbyPlayers(), 1000);
   }
 
   _updateNearbyPlayers() {
@@ -159,9 +159,9 @@ class BotInstance {
 
       // Trigger auto-mine if player nearby
       if (this.features.autoMine.enabled && this.features.autoMine.triggerOnPlayer) {
-        const closePlayer = players.find(p => p.distance !== null && p.distance <= (this.features.autoMine.radius * 3));
+        const closePlayer = players.find(p => p.distance !== null && p.distance <= 100);
         if (closePlayer && !this._miningActive) {
-          this.addLog('action', `⛏️ Spieler ${closePlayer.username} in der Nähe – starte Auto-Mine`);
+          this.addLog('action', `⛏️ Spieler ${closePlayer.username} erkannt (${closePlayer.distance}m) – starte Auto-Mine`);
           this._startAutoMine();
         } else if (!closePlayer && this._miningActive) {
           this.addLog('action', `⛏️ Kein Spieler mehr in der Nähe – stoppe Auto-Mine`);
@@ -306,7 +306,7 @@ class BotInstance {
         for (const blockName of targets) {
           const block = this.bot.findBlock({
             matching: (b) => this._blockMatches(b.name, [blockName]),
-            maxDistance: this.features.autoMine.radius || 8,
+            maxDistance: 64,
           });
           if (block) {
             const dist = this.bot.entity.position.distanceTo(block.position);
