@@ -53,6 +53,7 @@ router.post('/feature/:serverId', async (req, res) => {
       autoSneak: 'features.autoSneak',
       antiAfk: 'features.antiAfk',
       autoMine: 'features.autoMine.enabled',
+      autoChat: 'features.autoChat.enabled',
     };
     if (featureMap[feature]) {
       await Server.updateOne({ _id: server._id }, { $set: { [featureMap[feature]]: value } });
@@ -74,6 +75,19 @@ router.post('/mine-blocks/:serverId', async (req, res) => {
     );
     global.botManager?.updateAutoMineBlocks(req.user.id, req.params.serverId, blocks);
     res.json({ message: 'Blöcke aktualisiert' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Update auto-chat
+router.post('/auto-chat/:serverId', async (req, res) => {
+  try {
+    const { message, interval } = req.body;
+    await Server.updateOne(
+      { _id: req.params.serverId, userId: req.user.id },
+      { $set: { 'features.autoChat.message': message, 'features.autoChat.interval': interval } }
+    );
+    global.botManager?.updateAutoChat(req.user.id, req.params.serverId, message, interval);
+    res.json({ message: 'Auto-Chat aktualisiert' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

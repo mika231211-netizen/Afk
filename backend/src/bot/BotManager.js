@@ -20,11 +20,13 @@ class BotInstance {
       antiAfk: serverConfig.features?.antiAfk !== false,
       autoMine: serverConfig.features?.autoMine || { enabled: false, triggerOnPlayer: true, targetBlocks: [], radius: 5 },
       autoRespond: serverConfig.features?.autoRespond || { enabled: false, triggers: [] },
+      autoChat: serverConfig.features?.autoChat || { enabled: false, message: '', interval: 5 },
     };
 
     this._antiAfkTimer = null;
     this._miningActive = false;
     this._playerScanTimer = null;
+    this._autoChatTimer = null;
   }
 
   emit(event, data) {
@@ -197,6 +199,11 @@ class BotInstance {
       this._startAntiAfk();
     }
 
+    // Auto-Chat
+    if (this.features.autoChat.enabled && this.features.autoChat.message) {
+      this._startAutoChat();
+    }
+
     // Auto-Mine (ohne Player-Trigger)
     if (this.features.autoMine.enabled && !this.features.autoMine.triggerOnPlayer) {
       this._startAutoMine();
@@ -206,6 +213,7 @@ class BotInstance {
   _stopFeatures() {
     this._stopAntiAfk();
     this._stopAutoMine();
+    this._stopAutoChat();
     clearInterval(this._playerScanTimer);
     this._playerScanTimer = null;
   }
@@ -236,6 +244,29 @@ class BotInstance {
     if (this._antiAfkTimer) {
       clearInterval(this._antiAfkTimer);
       this._antiAfkTimer = null;
+    }
+  }
+
+  _startAutoChat() {
+    this._stopAutoChat();
+    const interval = (this.features.autoChat.interval || 5) * 60 * 1000;
+    this._autoChatTimer = setInterval(() => {
+      if (!this.bot || this.state !== 'online') return;
+      try {
+        const msg = this.features.autoChat.message;
+        if (msg) {
+          this.bot.chat(msg);
+          this.addLog('action', `💬 Auto-Chat: ${msg}`);
+        }
+      } catch {}
+    }, interval);
+    this.addLog('action', `💬 Auto-Chat gestartet (alle ${this.features.autoChat.interval} Min): "${this.features.autoChat.message}"`);
+  }
+
+  _stopAutoChat() {
+    if (this._autoChatTimer) {
+      clearInterval(this._autoChatTimer);
+      this._autoChatTimer = null;
     }
   }
 
@@ -510,12 +541,27 @@ class BotInstance {
         else if (!value) this._stopAutoMine();
         this.addLog('action', `⛏️ Auto-Mine ${value ? 'aktiviert' : 'deaktiviert'}`);
         break;
+      case 'autoChat':
+        this.features.autoChat.enabled = value;
+        if (value) this._startAutoChat();
+        else this._stopAutoChat();
+        this.addLog('action', `💬 Auto-Chat ${value ? 'aktiviert' : 'deaktiviert'}`);
+        break;
     }
   }
 
   updateAutoMineBlocks(blocks) {
     this.features.autoMine.targetBlocks = blocks;
     this.addLog('action', `⛏️ Ziel-Blöcke aktualisiert: ${blocks.join(', ')}`);
+  }
+
+  updateAutoChat(message, interval) {
+    this.features.autoChat.message = message;
+    this.features.autoChat.interval = interval;
+    if (this.features.autoChat.enabled) {
+      this._startAutoChat(); // restart with new settings
+    }
+    this.addLog('action', `💬 Auto-Chat aktualisiert: "${message}" alle ${interval} Min`);
   }
 
   stop() {
@@ -599,6 +645,11 @@ class BotManager {
   updateAutoMineBlocks(userId, serverId, blocks) {
     const key = this._key(userId, serverId);
     this.bots.get(key)?.updateAutoMineBlocks(blocks);
+  }
+
+  updateAutoChat(userId, serverId, message, interval) {
+    const key = this._key(userId, serverId);
+    this.bots.get(key)?.updateAutoChat(message, interval);
   }
 
   sendChat(userId, serverId, message) {

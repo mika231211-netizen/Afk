@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Square, RotateCcw, Send, Users, Zap, Shield, Pickaxe, MessageSquare, Plus, X } from 'lucide-react';
+import { ArrowLeft, Play, Square, RotateCcw, Send, Users, Zap, Shield, Pickaxe, MessageSquare, Plus, X, Clock } from 'lucide-react';
 import api from '../api/axios';
 import StatusBadge from '../components/StatusBadge';
 import { useSocket } from '../context/SocketContext';
@@ -50,10 +50,12 @@ export default function ServerPage() {
   const [chatInput, setChatInput] = useState('');
   const [nearbyPlayers, setNearbyPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [features, setFeatures] = useState({ autoSneak: false, antiAfk: true, autoMine: false });
+  const [features, setFeatures] = useState({ autoSneak: false, antiAfk: true, autoMine: false, autoChat: false });
   const [mineBlocks, setMineBlocks] = useState([]);
   const [blockInput, setBlockInput] = useState('');
   const [showBlockSuggestions, setShowBlockSuggestions] = useState(false);
+  const [autoChatMsg, setAutoChatMsg] = useState('');
+  const [autoChatInterval, setAutoChatInterval] = useState(5);
   const chatEndRef = useRef(null);
   const { on, off } = useSocket();
 
@@ -98,8 +100,11 @@ export default function ServerPage() {
         autoSneak: f.autoSneak || false,
         antiAfk: f.antiAfk !== false,
         autoMine: f.autoMine?.enabled || false,
+        autoChat: f.autoChat?.enabled || false,
       });
       setMineBlocks(found.features?.autoMine?.targetBlocks || []);
+      setAutoChatMsg(found.features?.autoChat?.message || '');
+      setAutoChatInterval(found.features?.autoChat?.interval || 5);
     } catch { navigate('/dashboard'); }
     finally { setLoading(false); }
   };
@@ -137,9 +142,11 @@ export default function ServerPage() {
     api.post(`/bot/mine-blocks/${id}`, { blocks: updated });
   };
 
-  const formatTime = (ts) => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const saveAutoChat = async () => {
+    await api.post(`/bot/auto-chat/${id}`, { message: autoChatMsg, interval: Number(autoChatInterval) });
+  };
 
-  if (loading) return <div className="text-gray-400 text-center py-16">Lade...</div>;
+  const formatTime = (ts) => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   const isRunning = ['online', 'connecting', 'reconnecting'].includes(status.state);
   const isOnline = status.state === 'online';
@@ -243,6 +250,8 @@ export default function ServerPage() {
               onToggle={(v) => toggleFeature('antiAfk', v)} disabled={!isOnline} />
             <FeatureToggle label="Auto-Mine" icon={Pickaxe} enabled={features.autoMine}
               onToggle={(v) => toggleFeature('autoMine', v)} disabled={!isOnline} />
+            <FeatureToggle label="Auto-Chat" icon={Clock} enabled={features.autoChat}
+              onToggle={(v) => toggleFeature('autoChat', v)} disabled={!isOnline} />
           </div>
 
           {/* Auto-Mine Block Config */}
@@ -287,6 +296,30 @@ export default function ServerPage() {
             </div>
             <p className="text-gray-600 text-xs mt-2">
               Bot abbaut diese Blöcke wenn ein Spieler in der Nähe ist (Auto-Mine muss aktiv sein)
+            </p>
+          </div>
+          {/* Auto-Chat Config */}
+          <div className="card">
+            <h2 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+              <Clock size={14} /> Auto-Chat
+            </h2>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Nachricht</label>
+                <input className="input-field text-xs" placeholder="z.B. Kaufe Diamonds!"
+                  value={autoChatMsg} onChange={e => setAutoChatMsg(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Interval (Minuten)</label>
+                <input className="input-field text-xs" type="number" min="1" max="60"
+                  value={autoChatInterval} onChange={e => setAutoChatInterval(e.target.value)} />
+              </div>
+              <button onClick={saveAutoChat} className="btn-secondary w-full text-xs">
+                Speichern
+              </button>
+            </div>
+            <p className="text-gray-600 text-xs mt-2">
+              Sendet die Nachricht automatisch alle X Minuten (Auto-Chat muss aktiv sein)
             </p>
           </div>
         </div>

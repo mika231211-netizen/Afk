@@ -27,6 +27,11 @@ const serverSchema = new mongoose.Schema({
       enabled: { type: Boolean, default: false },
       triggers: { type: [{ keyword: String, response: String }], default: [] },
     },
+    autoChat: {
+      enabled: { type: Boolean, default: false },
+      message: { type: String, default: '' },
+      interval: { type: Number, default: 5 }, // minutes
+    },
   },
   createdAt: { type: Date, default: Date.now },
 });
