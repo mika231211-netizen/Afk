@@ -115,16 +115,30 @@ class BotInstance {
       this._updateNearbyPlayers();
     });
 
+    bot.on('kicked', (reason) => {
+      this.addLog('error', `🚫 Gekickt: ${reason}`);
+    });
+
     bot.on('error', (err) => {
       this.setState('error', { error: err.message });
       this.addLog('error', `❌ Fehler: ${err.message}`);
       console.error(`[Bot ${this.serverId}] Error:`, err.message);
     });
 
-    bot.on('kicked', (reason) => {
-      this.addLog('error', `🚫 Gekickt: ${reason}`);
+    bot.on('entityHurt', (entity) => {
+      if (entity === bot.entity) {
+        const attacker = Object.values(bot.players || {}).find(p => {
+          if (!p.entity || p.username === bot.username) return false;
+          const dist = p.entity.position.distanceTo(bot.entity.position);
+          return dist < 8;
+        });
+        if (attacker) {
+          this.addLog('error', `🚨 Von ${attacker.username} getroffen – logge aus!`);
+          this.shouldReconnect = false;
+          setTimeout(() => { try { bot.quit(); } catch {} }, 500);
+        }
+      }
     });
-
     bot.on('end', (reason) => {
       this._stopFeatures();
       this.addLog('system', `🔌 Verbindung getrennt: ${reason || 'unbekannt'}`);
