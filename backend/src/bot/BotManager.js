@@ -360,21 +360,33 @@ class BotInstance {
           continue;
         }
 
-        // Find nearest target block
-        let found = null;
-        let minDist = Infinity;
-
-        // Always include all spawner variants automatically
+        // Expand spawner names automatically
         const allSpawnerNames = ['spawner', 'mob_spawner', 'monster_spawner'];
         const expandedTargets = [...targets];
         if (targets.some(t => t.includes('spawner'))) {
           allSpawnerNames.forEach(n => { if (!expandedTargets.includes(n)) expandedTargets.push(n); });
         }
 
+        // Move towards nearest player first to load chunks
+        if (this.nearbyPlayers.length > 0) {
+          const p = this.nearbyPlayers[0];
+          if (p?.entity) {
+            const dist = this.bot.entity.position.distanceTo(p.entity.position);
+            if (dist > 8) {
+              this.addLog('action', `🚶 Laufe zu ${p.username} (${Math.round(dist)}m)...`);
+              await this._navigateTo(p.entity.position.x, p.entity.position.y, p.entity.position.z, 15000);
+              await this._sleep(500);
+            }
+          }
+        }
+
+        // Find nearest target block
+        let found = null;
+        let minDist = Infinity;
         for (const blockName of expandedTargets) {
           const block = this.bot.findBlock({
-            matching: (b) => b.name === blockName || (blockName.includes('spawner') && b.name.includes('spawner')),
-            maxDistance: 128,
+            matching: (b) => b.name === blockName,
+            maxDistance: 32,
           });
           if (block) {
             const dist = this.bot.entity.position.distanceTo(block.position);
@@ -383,42 +395,21 @@ class BotInstance {
         }
 
         if (!found) {
-          // No blocks nearby - deposit if we have items
           if (blocksMined > 0) {
             await this._depositToEnderChest();
             blocksMined = 0;
           }
-        this.addLog('action', `🔍 Suche Blöcke: ${targets.join(', ')} – keiner gefunden (Radius 64)`);
-
-        // Debug: list nearby blocks
-        try {
-          const pos = this.bot.entity.position;
-          const nearBlocks = [];
-          for (let x = -3; x <= 3; x++) {
-            for (let y = -2; y <= 2; y++) {
-              for (let z = -3; z <= 3; z++) {
-                const b = this.bot.blockAt(pos.offset(x, y, z));
-                if (b && b.name !== 'air' && b.name !== 'cave_air' && b.name !== 'stone' && 
-                    b.name !== 'grass_block' && b.name !== 'dirt' && b.name !== 'deepslate') {
-                  nearBlocks.push(b.name);
-                }
-              }
-            }
-          }
-          const unique = [...new Set(nearBlocks)];
-          if (unique.length > 0) this.addLog('action', `🔍 Blöcke in 3m Radius: ${unique.join(', ')}`);
-        } catch {}
-
-        await this._sleep(3000);
+          this.addLog('action', `🔍 Kein Block gefunden in 32m Radius`);
+          await this._sleep(2000);
           continue;
         }
 
-        this.addLog('action', `⛏️ Ziel: ${found.name} (${Math.round(minDist)}m entfernt)`);
+        this.addLog('action', `⛏️ Ziel: ${found.name} (${Math.round(minDist)}m)`);
 
         // Equip pickaxe
         const pickaxe = await this._equipBestPickaxe();
         if (!pickaxe) {
-          this.addLog('action', '⛏️ Keine Spitzhacke im Inventar!');
+          this.addLog('action', '⚠️ Keine Spitzhacke!');
           await this._sleep(3000);
           continue;
         }
@@ -429,20 +420,17 @@ class BotInstance {
 
         // Re-check block still exists
         const blockStillThere = this.bot.blockAt(found.position);
-        if (!blockStillThere || !this._blockMatches(blockStillThere.name, targets)) {
+        if (!blockStillThere || blockStillThere.name === 'air') {
           await this._sleep(200);
           continue;
         }
 
-        // Re-equip pickaxe right before digging
+        // Re-equip and dig
         await this._equipBestPickaxe();
         await this._sleep(150);
-
-        // Look at block
         await this.bot.lookAt(found.position.offset(0.5, 0.5, 0.5));
         await this._sleep(100);
 
-        // Dig
         try {
           await this.bot.dig(blockStillThere);
           blocksMined++;
@@ -453,7 +441,6 @@ class BotInstance {
 
         await this._sleep(300);
 
-        // Deposit every 10 blocks
         if (blocksMined >= 10) {
           await this._depositToEnderChest();
           blocksMined = 0;
