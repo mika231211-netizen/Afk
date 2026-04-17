@@ -184,9 +184,10 @@ class BotInstance {
 
       // Trigger auto-mine if player nearby
       if (this.features.autoMine.enabled && this.features.autoMine.triggerOnPlayer) {
-        const closePlayer = players.find(p => p.distance !== null && p.distance <= 100);
+        // NaN distance means player is on the server but position unknown - still trigger
+        const closePlayer = players.find(p => p.distance === null || isNaN(p.distance) || p.distance <= 100);
         if (closePlayer && !this._miningActive) {
-          this.addLog('action', `⛏️ Spieler ${closePlayer.username} erkannt (${closePlayer.distance}m) – starte Auto-Mine`);
+          this.addLog('action', `⛏️ Spieler ${closePlayer.username} erkannt – starte Auto-Mine`);
           this._startAutoMine();
         } else if (!closePlayer && this._miningActive) {
           this.addLog('action', `⛏️ Kein Spieler mehr in der Nähe – stoppe Auto-Mine`);
