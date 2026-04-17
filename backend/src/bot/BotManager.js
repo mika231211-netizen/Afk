@@ -314,14 +314,14 @@ class BotInstance {
 
   // Check if block matches any target
   _blockMatches(blockName, targets) {
+    // Always match any spawner variant
+    const spawnerNames = ['spawner', 'mob_spawner', 'monster_spawner'];
+    const isSpawner = spawnerNames.includes(blockName) || blockName.includes('spawner');
+
     for (const t of targets) {
       if (blockName === t) return true;
-      // spawner matching - minecraft uses 'spawner' not 'mob_spawner' in 1.18+
-      if (t === 'spawner' || t === 'mob_spawner' || t === 'skeleton_spawner') {
-        if (blockName === 'spawner' || blockName === 'mob_spawner') return true;
-      }
-      if (t.includes('spawner') && blockName === 'spawner') return true;
-      if (t.includes('spawner') && blockName.includes('spawner')) return true;
+      // Match any spawner if target contains 'spawner'
+      if (t.includes('spawner') && isSpawner) return true;
     }
     return false;
   }
@@ -366,7 +366,7 @@ class BotInstance {
         for (const blockName of targets) {
           const block = this.bot.findBlock({
             matching: (b) => this._blockMatches(b.name, [blockName]),
-            maxDistance: 64,
+            maxDistance: 128,
           });
           if (block) {
             const dist = this.bot.entity.position.distanceTo(block.position);
