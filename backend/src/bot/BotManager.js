@@ -399,22 +399,19 @@ class BotInstance {
             await this._depositToEnderChest();
             blocksMined = 0;
           }
-          // Debug: show all non-trivial blocks in 5m radius
+          // Debug: show ALL blocks in 3m radius
           try {
             const pos = this.bot.entity.position;
             const seen = new Set();
-            for (let x = -5; x <= 5; x++)
-              for (let y = -3; y <= 3; y++)
-                for (let z = -5; z <= 5; z++) {
+            for (let x = -3; x <= 3; x++)
+              for (let y = -2; y <= 2; y++)
+                for (let z = -3; z <= 3; z++) {
                   const b = this.bot.blockAt(pos.offset(x, y, z));
-                  if (b && !['air','cave_air','stone','grass_block','dirt','deepslate',
-                    'water','lava','sand','gravel','oak_log','spruce_log','leaves',
-                    'oak_leaves','spruce_leaves','grass','short_grass','bedrock'].includes(b.name)) {
+                  if (b && b.name !== 'air' && b.name !== 'cave_air') {
                     seen.add(b.name);
                   }
                 }
-            if (seen.size > 0) this.addLog('action', `🔍 Blöcke in 5m: ${[...seen].join(', ')}`);
-            else this.addLog('action', `🔍 Keine besonderen Blöcke in 5m gefunden`);
+            this.addLog('action', `🔍 ALLE Blöcke in 3m: ${[...seen].join(', ')}`);
           } catch {}
           await this._sleep(2000);
           continue;
