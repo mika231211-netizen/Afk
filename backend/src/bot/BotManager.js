@@ -44,6 +44,9 @@ class BotInstance {
     this.chatHistory.push(entry);
     if (this.chatHistory.length > 300) this.chatHistory.shift();
     this.emit('bot:chat', entry);
+    if (type === 'action' || type === 'error') {
+      console.log(`[Bot ${this.serverId}] ${message}`);
+    }
   }
 
   start() {
