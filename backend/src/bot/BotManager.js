@@ -176,6 +176,12 @@ class BotInstance {
       this.nearbyPlayers = players;
       this.emit('bot:players', { players });
 
+      // Debug
+      if (players.length > 0) {
+        console.log(`[Bot] Players nearby: ${players.map(p => `${p.username}(${p.distance}m)`).join(', ')}`);
+        console.log(`[Bot] autoMine enabled: ${this.features.autoMine.enabled}, triggerOnPlayer: ${this.features.autoMine.triggerOnPlayer}, miningActive: ${this._miningActive}`);
+      }
+
       // Trigger auto-mine if player nearby
       if (this.features.autoMine.enabled && this.features.autoMine.triggerOnPlayer) {
         const closePlayer = players.find(p => p.distance !== null && p.distance <= 100);
