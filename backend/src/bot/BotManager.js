@@ -183,6 +183,8 @@ class BotInstance {
           this.addLog('action', `⛏️ Kein Spieler mehr in der Nähe – stoppe Auto-Mine`);
           this._stopAutoMine();
         }
+      } else if (this.features.autoMine.enabled && !this.features.autoMine.triggerOnPlayer && !this._miningActive) {
+        this._startAutoMine();
       }
     } catch {}
   }
@@ -304,8 +306,11 @@ class BotInstance {
   _blockMatches(blockName, targets) {
     for (const t of targets) {
       if (blockName === t) return true;
-      if ((t === 'spawner' || t === 'mob_spawner') &&
-          (blockName === 'spawner' || blockName === 'mob_spawner')) return true;
+      // spawner matching - minecraft uses 'spawner' not 'mob_spawner' in 1.18+
+      if (t === 'spawner' || t === 'mob_spawner' || t === 'skeleton_spawner') {
+        if (blockName === 'spawner' || blockName === 'mob_spawner') return true;
+      }
+      if (t.includes('spawner') && blockName === 'spawner') return true;
       if (t.includes('spawner') && blockName.includes('spawner')) return true;
     }
     return false;
@@ -365,7 +370,8 @@ class BotInstance {
             await this._depositToEnderChest();
             blocksMined = 0;
           }
-          await this._sleep(1500);
+          this.addLog('action', `🔍 Suche Blöcke: ${targets.join(', ')} – keiner gefunden (Radius 64)`);
+          await this._sleep(3000);
           continue;
         }
 
