@@ -363,9 +363,17 @@ class BotInstance {
         // Find nearest target block
         let found = null;
         let minDist = Infinity;
-        for (const blockName of targets) {
+
+        // Always include all spawner variants automatically
+        const allSpawnerNames = ['spawner', 'mob_spawner', 'monster_spawner'];
+        const expandedTargets = [...targets];
+        if (targets.some(t => t.includes('spawner'))) {
+          allSpawnerNames.forEach(n => { if (!expandedTargets.includes(n)) expandedTargets.push(n); });
+        }
+
+        for (const blockName of expandedTargets) {
           const block = this.bot.findBlock({
-            matching: (b) => this._blockMatches(b.name, [blockName]),
+            matching: (b) => b.name === blockName || (blockName.includes('spawner') && b.name.includes('spawner')),
             maxDistance: 128,
           });
           if (block) {
