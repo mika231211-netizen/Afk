@@ -380,8 +380,28 @@ class BotInstance {
             await this._depositToEnderChest();
             blocksMined = 0;
           }
-          this.addLog('action', `🔍 Suche Blöcke: ${targets.join(', ')} – keiner gefunden (Radius 64)`);
-          await this._sleep(3000);
+        this.addLog('action', `🔍 Suche Blöcke: ${targets.join(', ')} – keiner gefunden (Radius 64)`);
+
+        // Debug: list nearby blocks
+        try {
+          const pos = this.bot.entity.position;
+          const nearBlocks = [];
+          for (let x = -3; x <= 3; x++) {
+            for (let y = -2; y <= 2; y++) {
+              for (let z = -3; z <= 3; z++) {
+                const b = this.bot.blockAt(pos.offset(x, y, z));
+                if (b && b.name !== 'air' && b.name !== 'cave_air' && b.name !== 'stone' && 
+                    b.name !== 'grass_block' && b.name !== 'dirt' && b.name !== 'deepslate') {
+                  nearBlocks.push(b.name);
+                }
+              }
+            }
+          }
+          const unique = [...new Set(nearBlocks)];
+          if (unique.length > 0) this.addLog('action', `🔍 Blöcke in 3m Radius: ${unique.join(', ')}`);
+        } catch {}
+
+        await this._sleep(3000);
           continue;
         }
 
